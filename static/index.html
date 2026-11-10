@@ -1,0 +1,173 @@
+
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GANJ AI PRO</title>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.2/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#080d16;color:#e8edf7;font-family:Tahoma,Arial,sans-serif;padding:14px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+h2{color:#e9bd45;margin:0;font-size:23px}
+small{color:#8290a5}
+.panel{background:#111a29;border:1px solid #25334a;border-radius:13px;padding:14px;margin:12px 0}
+input,button{border:0;border-radius:9px;padding:12px;font-size:14px}
+input{background:#202c40;color:white;width:65%;direction:ltr}
+button{background:#e9bd45;color:#10131a;font-weight:bold}
+button:disabled{opacity:.5}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.metric{background:#0b1320;padding:12px;border-radius:9px}
+.metric span{display:block;color:#8e9bb0;font-size:12px;margin-bottom:8px}
+.metric b{font-size:17px;direction:ltr;display:block}
+#chart{height:330px;width:100%}
+#forecast{height:280px;width:100%}
+table{width:100%;border-collapse:collapse;font-size:12px}
+td,th{padding:10px 5px;border-bottom:1px solid #263349;text-align:center}
+.green{color:#24d69a}.red{color:#ff6378}.gold{color:#e9bd45}
+.status{padding:9px;border-radius:8px;background:#0b1320;text-align:center}
+</style>
+</head>
+<body>
+<header>
+<div><h2>GANJ AI PRO</h2><small>هوش مصنوعی تحلیل بازار ارز دیجیتال</small></div>
+<div class="gold">● LIVE</div>
+</header>
+
+<div class="panel">
+<label>نماد معاملاتی</label><br><br>
+<input id="symbol" value="BTCUSDT" list="coins" placeholder="BTCUSDT">
+<datalist id="coins"></datalist>
+<button id="run" onclick="analyze()">تحلیل</button>
+<div id="status" class="status" style="margin-top:12px">آماده تحلیل بازار</div>
+</div>
+
+<div class="panel">
+<div class="gold">قیمت لحظه آخرین کندل بسته‌شده 4H</div>
+<h2 id="price" style="margin-top:12px">---</h2>
+<small id="updated">---</small>
+</div>
+
+<div class="grid">
+<div class="panel metric"><span>روند 4 ساعته</span><b id="t4">---</b></div>
+<div class="panel metric"><span>روند روزانه</span><b id="td">---</b></div>
+<div class="panel metric"><span>RSI 14</span><b id="rsi">---</b></div>
+<div class="panel metric"><span>MACD</span><b id="macd">---</b></div>
+<div class="panel metric"><span>ADX</span><b id="adx">---</b></div>
+<div class="panel metric"><span>ATR درصد</span><b id="atr">---</b></div>
+</div>
+
+<div class="panel">
+<h3>نمودار تاریخی 4H</h3>
+<div id="chart"></div>
+</div>
+
+<div class="panel">
+<h3>پیش‌بینی ۱۰ کندل آینده</h3>
+<div id="forecast"></div>
+<small>پیش‌بینی مدل آماری است؛ قیمت آینده تضمین‌شده نیست.</small>
+</div>
+
+<div class="panel">
+<h3>حمایت و مقاومت</h3>
+<div class="grid">
+<div><small>حمایت‌ها</small><div id="supports">---</div></div>
+<div><small>مقاومت‌ها</small><div id="resistances">---</div></div>
+</div>
+</div>
+
+<div class="panel">
+<h3>سیگنال تحلیلی</h3>
+<div class="grid">
+<div class="metric"><span>جهت</span><b id="signal">---</b></div>
+<div class="metric"><span>امتیاز</span><b id="score">---</b></div>
+<div class="metric"><span>حد ضرر</span><b id="sl">---</b></div>
+<div class="metric"><span>هدف 2R</span><b id="tp">---</b></div>
+</div>
+</div>
+
+<div class="panel">
+<h3>ارزیابی مدل</h3>
+<div class="grid">
+<div class="metric"><span>نمونه آموزش</span><b id="samples">---</b></div>
+<div class="metric"><span>دقت جهت در آزمون گذشته</span><b id="accuracy">---</b></div>
+<div class="metric"><span>خطای MAE بازده لگاریتمی</span><b id="mae">---</b></div>
+</div>
+<small>عملکرد گذشته معیار تضمین سود آینده نیست.</small>
+</div>
+
+<script>
+let chart, forecastChart, candleSeries, forecastSeries;
+
+function setupCharts(){
+ if(!window.LightweightCharts)return;
+ const opts={layout:{background:{color:'#111a29'},textColor:'#b9c6d8'},
+ grid:{vertLines:{color:'#202d40'},horzLines:{color:'#202d40'}},
+ rightPriceScale:{borderColor:'#35445b'},
+ timeScale:{borderColor:'#35445b',timeVisible:true}};
+ chart=LightweightCharts.createChart(document.getElementById('chart'),{...opts,width:document.getElementById('chart').clientWidth,height:330});
+ candleSeries=chart.addCandlestickSeries({upColor:'#20c997',downColor:'#ff6378',borderVisible:false,wickUpColor:'#20c997',wickDownColor:'#ff6378'});
+ forecastChart=LightweightCharts.createChart(document.getElementById('forecast'),{...opts,width:document.getElementById('forecast').clientWidth,height:280});
+ forecastSeries=forecastChart.addCandlestickSeries({upColor:'#e9bd45',downColor:'#ff6378',borderVisible:false,wickUpColor:'#e9bd45',wickDownColor:'#ff6378'});
+ window.addEventListener('resize',()=>{
+  chart.applyOptions({width:document.getElementById('chart').clientWidth});
+  forecastChart.applyOptions({width:document.getElementById('forecast').clientWidth});
+ });
+}
+function fmt(n){return Number(n).toLocaleString('en-US',{maximumFractionDigits:8})}
+function set(id,value){document.getElementById(id).textContent=value}
+function trend(id,value){
+ set(id,value);
+ document.getElementById(id).className=value==='صعودی'?'green':value==='نزولی'?'red':'gold';
+}
+async function loadSymbols(){
+ try{
+  const r=await fetch('/api/symbols');
+  const j=await r.json();
+  document.getElementById('coins').innerHTML=j.symbols.map(x=>`<option value="${x}">`).join('');
+ }catch(e){}
+}
+async function analyze(){
+ const btn=document.getElementById('run');
+ const symbol=document.getElementById('symbol').value.trim().toUpperCase();
+ if(!/^[A-Z0-9]+USDT$/.test(symbol)){set('status','نماد معتبر USDT وارد کنید');return}
+ btn.disabled=true;set('status','در حال دریافت داده و تحلیل هوشمند...');
+ try{
+  const r=await fetch('/api/analyze/'+encodeURIComponent(symbol));
+  const d=await r.json();
+  if(!r.ok)throw new Error(d.detail||'خطای سرور');
+  set('status','تحلیل با موفقیت انجام شد');
+  set('price',fmt(d.price));
+  set('updated',new Date(d.updated).toLocaleString('fa-IR'));
+  trend('t4',d.trends['4h']);trend('td',d.trends['1d']);
+  set('rsi',fmt(d.indicators.rsi));
+  set('macd',d.indicators.macd);
+  set('adx',fmt(d.indicators.adx));
+  set('atr',fmt(d.indicators.atr_pct)+'%');
+  set('supports',d.levels.supports.map(fmt).join(' | ')||'---');
+  set('resistances',d.levels.resistances.map(fmt).join(' | ')||'---');
+  set('signal',d.signal.side);
+  document.getElementById('signal').className=d.signal.side==='LONG'?'green':d.signal.side==='SHORT'?'red':'gold';
+  set('score',d.signal.score);
+  set('sl',fmt(d.signal.stop_loss));set('tp',fmt(d.signal.take_profit_2r));
+  set('samples',d.model.train_samples);
+  set('accuracy',fmt(d.model.test_direction_accuracy_pct)+'%');
+  set('mae',fmt(d.model.test_mae_log_return));
+  candleSeries.setData(d.history);
+  chart.timeScale().fitContent();
+  const last=d.history[d.history.length-1];
+  const future=d.forecast.map((x,i)=>({
+   time:last.time+(i+1)*14400,
+   open:x.open,high:x.high,low:x.low,close:x.close
+  }));
+  forecastSeries.setData(future);
+  forecastChart.timeScale().fitContent();
+ }catch(e){set('status','خطا: '+e.message)}
+ finally{btn.disabled=false}
+}
+setupCharts();
+loadSymbols();
+</script>
+</body>
+</html>
