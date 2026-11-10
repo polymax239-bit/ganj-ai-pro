@@ -1,0 +1,348 @@
+
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GANJ AI LIVE PRO</title>
+<script src="https://unpkg.com/lightweight-charts@4.2.2/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#080c13;color:#e8edf5;font-family:Tahoma,Arial}
+header{padding:16px;background:#101927;border-bottom:1px solid #263348}
+h2{margin:0;color:#f3c84b;font-size:21px}
+small{color:#8c9bad}
+main{padding:12px;max-width:1100px;margin:auto}
+.panel{background:#111b29;border:1px solid #26364b;border-radius:12px;padding:13px;margin-bottom:12px}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+input,select,button{width:100%;padding:12px;background:#0a111c;color:white;border:1px solid #35465c;border-radius:8px;font-size:14px}
+button{background:#b58b24;color:#080c13;font-weight:bold;border:0}
+#chart{height:350px;width:100%}
+.price{font-size:25px;font-weight:bold;direction:ltr;text-align:right}
+.green{color:#00d69a}.red{color:#ff596b}.yellow{color:#f5c542}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.metric{background:#0b1420;padding:12px;border-radius:9px;min-width:0}
+.metric span{display:block;color:#91a1b4;font-size:12px;margin-bottom:8px}
+.metric b{font-size:15px;overflow-wrap:anywhere}
+h3{font-size:15px;margin:0 0 12px;color:#f3c84b}
+table{width:100%;border-collapse:collapse;font-size:12px;direction:ltr}
+td,th{padding:8px;border-bottom:1px solid #273449;text-align:center}
+th{color:#9babc0}
+#forecast{overflow-x:auto}
+#forecast table{min-width:500px}
+.status{font-size:12px;color:#9babc0;margin-top:8px}
+@media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}.controls{grid-template-columns:2fr 1fr 1fr auto}}
+</style>
+</head>
+<body>
+<header>
+<h2>GANJ AI LIVE PRO</h2>
+<small>تحلیل زنده بازار ارزهای دیجیتال</small>
+</header>
+<main>
+<section class="panel">
+<div class="controls">
+<input id="symbol" value="BTCUSDT" placeholder="مثلاً BTCUSDT">
+<select id="market">
+<option value="futures">Futures</option>
+<option value="spot">Spot</option>
+</select>
+<select id="tf">
+<option value="1m">1 دقیقه</option>
+<option value="5m">5 دقیقه</option>
+<option value="15m">15 دقیقه</option>
+<option value="1h">1 ساعت</option>
+<option value="4h" selected>4 ساعت</option>
+<option value="1d">روزانه</option>
+</select>
+<button onclick="start()">تحلیل</button>
+</div>
+<div class="status" id="connection">در انتظار اتصال...</div>
+</section>
+
+<section class="panel">
+<h3>قیمت لحظه‌ای</h3>
+<div class="price" id="price">---</div>
+<div id="change" class="status">---</div>
+</section>
+
+<section class="panel">
+<h3>نمودار زنده بازار</h3>
+<div id="chart"></div>
+</section>
+
+<section class="panel">
+<h3>داشبورد تحلیل تکنیکال</h3>
+<div class="grid">
+<div class="metric"><span>روند EMA20 / EMA50</span><b id="trend">---</b></div>
+<div class="metric"><span>RSI</span><b id="rsi">---</b></div>
+<div class="metric"><span>MACD</span><b id="macd">---</b></div>
+<div class="metric"><span>ATR</span><b id="atr">---</b></div>
+<div class="metric"><span>حمایت</span><b id="support">---</b></div>
+<div class="metric"><span>مقاومت</span><b id="resistance">---</b></div>
+<div class="metric"><span>قدرت خریدار</span><b id="buyers">---</b></div>
+<div class="metric"><span>سیگنال</span><b id="signal">---</b></div>
+</div>
+</section>
+
+<section class="panel">
+<h3>تابلوخوانی و دفتر سفارشات</h3>
+<div class="grid">
+<div class="metric"><span>Bid / سفارش خرید</span><b id="bid">---</b></div>
+<div class="metric"><span>Ask / سفارش فروش</span><b id="ask">---</b></div>
+<div class="metric"><span>نسبت خریدار</span><b id="buyRatio">---</b></div>
+<div class="metric"><span>معاملات اخیر</span><b id="trades">---</b></div>
+</div>
+<div style="overflow:auto;margin-top:12px">
+<table>
+<thead><tr><th>PRICE</th><th>BID QTY</th><th>ASK QTY</th></tr></thead>
+<tbody id="book"></tbody>
+</table>
+</div>
+</section>
+
+<section class="panel">
+<h3>اطلاعات بازار Futures</h3>
+<div class="grid">
+<div class="metric"><span>Open Interest</span><b id="oi">---</b></div>
+<div class="metric"><span>Funding Rate</span><b id="funding">---</b></div>
+<div class="metric"><span>Long / Short</span><b id="longshort">---</b></div>
+<div class="metric"><span>حجم 24 ساعته</span><b id="volume">---</b></div>
+</div>
+</section>
+
+<section class="panel">
+<h3>پیش‌بینی ۱۰ کندل آینده (سناریوی احتمالی)</h3>
+<div id="forecast">در انتظار دریافت داده...</div>
+<div class="status">این پیش‌بینی بر اساس روند و نوسان تاریخی است و تضمین‌کننده حرکت آینده نیست.</div>
+</section>
+
+<section class="panel">
+<h3>اطلاعات بنیادی CoinMarketCap</h3>
+<div id="cmc" class="status">برای فعال‌سازی به API Key نیاز است.</div>
+</section>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+let chart,candles,liveSocket=null,bookSocket=null;
+let currentSymbol="BTCUSDT",currentMarket="futures",currentTF="4h";
+let lastCandles=[],lastPrice=0;
+
+function fmt(n){
+ return Number(n).toLocaleString("en-US",{maximumFractionDigits:8});
+}
+function setText(id,v){$(id).textContent=v;}
+function createChart(){
+ const el=$("chart");
+ el.innerHTML="";
+ chart=LightweightCharts.createChart(el,{
+  width:el.clientWidth,height:350,
+  layout:{background:{color:"#111b29"},textColor:"#b7c5d7"},
+  grid:{vertLines:{color:"#1d2a3c"},horzLines:{color:"#1d2a3c"}},
+  rightPriceScale:{borderColor:"#34445a"},
+  timeScale:{borderColor:"#34445a",timeVisible:true},
+  crosshair:{mode:1}
+ });
+ candles=chart.addCandlestickSeries({
+  upColor:"#00c995",downColor:"#ff5369",
+  borderUpColor:"#00c995",borderDownColor:"#ff5369",
+  wickUpColor:"#00c995",wickDownColor:"#ff5369"
+ });
+}
+async function api(path,params={}){
+ const q=new URLSearchParams(params);
+ const r=await fetch(path+"?"+q.toString());
+ if(!r.ok)throw Error("HTTP "+r.status);
+ return r.json();
+}
+async function loadCandles(){
+ const data=await api("/api/klines",{
+  symbol:currentSymbol,market:currentMarket,
+  interval:currentTF,limit:500
+ });
+ if(!Array.isArray(data))throw Error(data.error||"دریافت کندل ناموفق بود");
+ lastCandles=data.map(x=>({
+  time:Math.floor(x[0]/1000),
+  open:+x[1],high:+x[2],low:+x[3],close:+x[4]
+ }));
+ candles.setData(lastCandles);
+ chart.timeScale().fitContent();
+ analyze();
+}
+function ema(values,len){
+ let k=2/(len+1),out=[];
+ values.forEach((v,i)=>out.push(i===0?v:v*k+out[i-1]*(1-k)));
+ return out;
+}
+function rsi(values,len=14){
+ if(values.length<=len)return 50;
+ let gains=0,losses=0;
+ for(let i=values.length-len;i<values.length;i++){
+  let d=values[i]-values[i-1];
+  if(d>0)gains+=d;else losses-=d;
+ }
+ let rs=losses===0?100:gains/losses;
+ return 100-(100/(1+rs));
+}
+function analyze(){
+ if(lastCandles.length<50)return;
+ let c=lastCandles,closes=c.map(x=>x.close);
+ let e20=ema(closes,20),e50=ema(closes,50);
+ let rv=rsi(closes);
+ let recent=c.slice(-14);
+ let tr=recent.map(x=>x.high-x.low);
+ let atr=tr.reduce((a,b)=>a+b,0)/tr.length;
+ let sup=Math.min(...c.slice(-50).map(x=>x.low));
+ let res=Math.max(...c.slice(-50).map(x=>x.high));
+ let direction=e20.at(-1)>e50.at(-1);
+ setText("trend",direction?"صعودی":"نزولی");
+ $("trend").className=direction?"green":"red";
+ setText("rsi",rv.toFixed(2));
+ setText("macd",fmt(e20.at(-1)-e50.at(-1)));
+ setText("atr",fmt(atr));
+ setText("support",fmt(sup));
+ setText("resistance",fmt(res));
+ let score=(direction?1:-1)+(rv>55?1:rv<45?-1:0);
+ setText("signal",score>0?"احتمال صعود":score<0?"احتمال نزول":"خنثی");
+ $("signal").className=score>0?"green":score<0?"red":"yellow";
+ makeForecast(c,atr,direction);
+}
+function makeForecast(c,atr,up){
+ let base=c.at(-1).close;
+ let e=ema(c.map(x=>x.close),20).at(-1);
+ let drift=(e-base)*0.18;
+ let html="<table><thead><tr><th>#</th><th>OPEN</th><th>HIGH</th><th>LOW</th><th>CLOSE</th></tr></thead><tbody>";
+ for(let i=1;i<=10;i++){
+  let o=base;
+  let momentum=drift*(up?1:-1);
+  let move=momentum+Math.sin(i*1.7)*atr*.18+(up?1:-1)*atr*.06;
+  let cl=o+move;
+  let hi=Math.max(o,cl)+atr*.28;
+  let lo=Math.min(o,cl)-atr*.28;
+  html+=`<tr><td>${i}</td><td>${fmt(o)}</td><td>${fmt(hi)}</td><td>${fmt(lo)}</td><td>${fmt(cl)}</td></tr>`;
+  base=cl;
+ }
+ $("forecast").innerHTML=html+"</tbody></table>";
+}
+async function loadTicker(){
+ let t=await api("/api/ticker",{symbol:currentSymbol,market:currentMarket});
+ if(t.error)throw Error(t.error);
+ lastPrice=+t.lastPrice;
+ setText("price",fmt(lastPrice));
+ let ch=+t.priceChangePercent;
+ setText("change",`تغییر ۲۴ ساعته: ${ch.toFixed(2)}%`);
+ $("change").className=ch>=0?"green":"red";
+ setText("volume",fmt(+t.quoteVolume));
+}
+async function loadBook(){
+ let b=await api("/api/book",{symbol:currentSymbol,market:currentMarket});
+ if(b.error)throw Error(b.error);
+ let bids=b.bids||[],asks=b.asks||[];
+ let bv=bids.reduce((s,x)=>s+(+x[1]),0);
+ let av=asks.reduce((s,x)=>s+(+x[1]),0);
+ setText("bid",fmt(bids[0]?.[0]));
+ setText("ask",fmt(asks[0]?.[0]));
+ setText("buyRatio",((bv/(bv+av||1))*100).toFixed(1)+"%");
+ let rows="";
+ for(let i=0;i<15;i++){
+  rows+=`<tr><td>${fmt(bids[i]?.[0]||0)}</td><td class="green">${fmt(bids[i]?.[1]||0)}</td><td class="red">${fmt(asks[i]?.[1]||0)}</td></tr>`;
+ }
+ $("book").innerHTML=rows;
+}
+async function loadDerivatives(){
+ if(currentMarket!=="futures"){
+  ["oi","funding","longshort"].forEach(x=>setText(x,"فقط Futures"));
+  return;
+ }
+ let [oi,fu,ls]=await Promise.all([
+  api("/api/open-interest",{symbol:currentSymbol}),
+  api("/api/funding",{symbol:currentSymbol}),
+  api("/api/long-short",{symbol:currentSymbol})
+ ]);
+ setText("oi",oi.openInterest?fmt(+oi.openInterest):"ناموجود");
+ setText("funding",fu.lastFundingRate?(+fu.lastFundingRate*100).toFixed(4)+"%":"ناموجود");
+ let last=Array.isArray(ls)?ls.at(-1):null;
+ setText("longshort",last?fmt(last.longShortRatio):"ناموجود");
+}
+async function loadTrades(){
+ let t=await api("/api/trades",{symbol:currentSymbol,market:currentMarket});
+ if(!Array.isArray(t))return;
+ let buy=t.filter(x=>!x.m).length;
+ let sell=t.length-buy;
+ setText("trades",`${t.length} | خرید ${buy} / فروش ${sell}`);
+}
+function closeSockets(){
+ if(liveSocket){liveSocket.close();liveSocket=null;}
+ if(bookSocket){bookSocket.close();bookSocket=null;}
+}
+function connectLive(){
+ closeSockets();
+ const stream=currentMarket==="futures"?
+ "wss://fstream.binance.com/stream?streams=":
+ "wss://stream.binance.com:9443/stream?streams=";
+ const s=currentSymbol.toLowerCase();
+ const k=`${s}@kline_${currentTF}`;
+ liveSocket=new WebSocket(stream+k+"/"+s+"@bookTicker");
+ liveSocket.onmessage=e=>{
+  let msg=JSON.parse(e.data),d=msg.data;
+  if(d.e==="kline"){
+   let k=d.k;
+   candles.update({
+    time:Math.floor(k.t/1000),open:+k.o,
+    high:+k.h,low:+k.l,close:+k.c
+   });
+   if(k.x){
+    loadCandles().catch(console.error);
+   }
+  }else if(d.e==="bookTicker"){
+   setText("bid",fmt(+d.b));
+   setText("ask",fmt(+d.a));
+  }
+ };
+ liveSocket.onopen=()=>setText("connection","اتصال زنده Binance برقرار است");
+ liveSocket.onerror=()=>setText("connection","خطای اتصال زنده");
+ liveSocket.onclose=()=>setText("connection","اتصال قطع شد");
+ const depth=`${s}@depth20@100ms`;
+ bookSocket=new WebSocket(stream+depth);
+ bookSocket.onmessage=e=>{
+  let m=JSON.parse(e.data).data;
+  if(!m.b||!m.a)return;
+  let bv=m.b.reduce((s,x)=>s+(+x[1]),0);
+  let av=m.a.reduce((s,x)=>s+(+x[1]),0);
+  setText("buyRatio",(bv/(bv+av||1)*100).toFixed(1)+"%");
+ };
+}
+async function loadCMC(){
+ let x=await api("/api/cmc",{symbol:currentSymbol.replace("USDT","")});
+ if(x.available===false){setText("cmc",x.message);return;}
+ setText("cmc",JSON.stringify(x).slice(0,500));
+}
+async function start(){
+ currentSymbol=$("symbol").value.trim().toUpperCase();
+ currentMarket=$("market").value;
+ currentTF=$("tf").value;
+ if(!/^[A-Z0-9]+$/.test(currentSymbol)){
+  alert("نماد معتبر وارد کنید؛ مثال BTCUSDT");return;
+ }
+ setText("connection","در حال دریافت اطلاعات...");
+ closeSockets();
+ try{
+  createChart();
+  await loadCandles();
+  await Promise.all([
+   loadTicker(),loadBook(),loadDerivatives(),
+   loadTrades(),loadCMC()
+  ]);
+  connectLive();
+ }catch(e){
+  setText("connection","خطا: "+e.message);
+ }
+}
+window.addEventListener("resize",()=>{
+ if(chart)chart.applyOptions({width:$("chart").clientWidth});
+});
+start();
+</script>
+</body>
+</html>
